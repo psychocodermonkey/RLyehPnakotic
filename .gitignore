@@ -99,3 +99,7 @@ venv.bak/
 
 # other repos
 /android
+
+# dependency build temp files
+deps-build/
+/deps/

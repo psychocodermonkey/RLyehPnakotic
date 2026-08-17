@@ -17,7 +17,7 @@
 
 from dataclasses import dataclass
 
-__all__ = ('ArchivePin', 'DependencyPin', 'DEPENDENCIES')
+__all__ = ('ArchivePin', 'DependencyPin', 'QTBASE', 'QTDECLARATIVE', 'DEPENDENCIES')
 
 
 @dataclass(frozen=True)
@@ -34,8 +34,40 @@ class DependencyPin:
   version: str
   archive: ArchivePin
   dependencies: tuple[str, ...] = ()
+  flags: tuple[str, ...] = ()
 
 
-# Pin records are added here and exported through __all__. Build flags and
-# platform behavior belong in build-dependencies.py, not in the source manifest.
-DEPENDENCIES: tuple[DependencyPin, ...] = ()
+# Pin records and their dependency-specific flags are exported through __all__.
+# Platform behavior belongs in build-dependencies.py, not in the source manifest.
+QTBASE = DependencyPin(
+  name='qtbase',
+  version='6.11.1',
+  archive=ArchivePin(
+    filename='qtbase-everywhere-src-6.11.1.tar.xz',
+    url=(
+      'https://download.qt.io/official_releases/qt/6.11/6.11.1/submodules/'
+      'qtbase-everywhere-src-6.11.1.tar.xz'
+    ),
+    sha256='d9594a31228aa23ad6b531719a29b45f0f3989fe6c136d45767ea179f233c1ac',
+    source_directory='qtbase-everywhere-src-6.11.1',
+  ),
+  flags=('-DQT_BUILD_EXAMPLES=OFF', '-DQT_BUILD_TESTS=OFF', '-DQT_INSTALL_CONFIG_INFO_FILES=OFF'),
+)
+
+QTDECLARATIVE = DependencyPin(
+  name='qtdeclarative',
+  version='6.11.1',
+  archive=ArchivePin(
+    filename='qtdeclarative-everywhere-src-6.11.1.tar.xz',
+    url=(
+      'https://download.qt.io/official_releases/qt/6.11/6.11.1/submodules/'
+      'qtdeclarative-everywhere-src-6.11.1.tar.xz'
+    ),
+    sha256='52e670f670b0304f534b24f98c47ceb8a41bb710464414ebc9527ec71cc86aa4',
+    source_directory='qtdeclarative-everywhere-src-6.11.1',
+  ),
+  dependencies=('qtbase',),
+  flags=('-DQT_BUILD_EXAMPLES=OFF', '-DQT_BUILD_TESTS=OFF', '-DQT_INSTALL_CONFIG_INFO_FILES=OFF'),
+)
+
+DEPENDENCIES: tuple[DependencyPin, ...] = (QTBASE, QTDECLARATIVE)

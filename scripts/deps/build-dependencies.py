@@ -28,6 +28,7 @@ defaults to the repository's ``deps`` directory.
 
 import argparse
 import hashlib
+import os
 import platform
 import shlex
 import shutil
@@ -102,14 +103,83 @@ def main(deps_dir: Path, target: str, arch: str) -> int:
   print(f'Target: {context.target}')
   print(f'Architecture: {context.architecture}')
 
+  validate_qt_build_context(context)
+  download_dependencies(DEPENDENCIES, context)
+  verify_dependency_archives(DEPENDENCIES, context)
+
   # Dependency-specific build calls belong here in explicit prerequisite order.
-  # For example:
-  # build_qtbase(context, QTBASE)
-  # build_qtdeclarative(context, QTDECLARATIVE)
-  if not DEPENDENCIES:
-    print('No dependencies are currently pinned.')
+  build_qtbase(context, QTBASE)
+  build_qtdeclarative(context, QTDECLARATIVE)
 
   return 0
+
+
+def build_qtbase(context: BuildContext, dependency: DependencyPin) -> None:
+  """Build and install the pinned QtBase source for the requested target."""
+
+  install_dir = qt_install_directory(context, dependency.version)
+  source_dir = prepare_source(dependency, context)
+  cmake_build(
+    context,
+    source_dir,
+    dependency_build_directory(context, dependency),
+    install_dir,
+    flags=dependency.flags,
+  )
+
+
+def build_qtdeclarative(context: BuildContext, dependency: DependencyPin) -> None:
+  """Build QtDeclarative against the QtBase installation in the same Qt prefix."""
+
+  install_dir = qt_install_directory(context, dependency.version)
+  flags = dependency.flags + (f'-DQt6_ROOT={install_dir}', f'-DCMAKE_PREFIX_PATH={install_dir}')
+  source_dir = prepare_source(dependency, context)
+  cmake_build(
+    context, source_dir, dependency_build_directory(context, dependency), install_dir, flags=flags
+  )
+
+
+def validate_qt_build_context(context: BuildContext) -> None:
+  """Require a currently implemented Qt host and target combination."""
+
+  if context.target not in {'darwin', 'linux'}:
+    raise ValueError(f'Qt builds for target {context.target!r} are not implemented')
+
+  local_target = resolve_local_target()
+  if context.target != local_target:
+    raise ValueError(f'Native {context.target!r} Qt builds cannot run on host {local_target!r}')
+
+  if context.target == 'linux':
+    local_architecture = resolve_local_architecture()
+    if context.architecture != local_architecture:
+      raise ValueError(
+        'Linux cross-architecture Qt builds are not implemented; '
+        f'requested {context.architecture!r} on {local_architecture!r}'
+      )
+
+
+def qt_install_directory(context: BuildContext, version: str) -> Path:
+  """Return the versioned Qt prefix for one target and architecture."""
+
+  return context.deps_dir / 'Qt' / version / f'{context.target}-{context.architecture}'
+
+
+def dependency_build_directory(context: BuildContext, dependency: DependencyPin) -> Path:
+  """Return an isolated build directory for a dependency and build target."""
+
+  build_name = f'{dependency.name}-{dependency.version}-{context.target}-{context.architecture}'
+  return context.build_root / build_name
+
+
+def resolve_local_target() -> str:
+  """Return the current host as ``darwin``, ``linux``, or ``winnt``."""
+
+  system = platform.system().lower()
+  aliases = {'darwin': 'darwin', 'linux': 'linux', 'windows': 'winnt'}
+  try:
+    return aliases[system]
+  except KeyError as error:
+    raise ValueError(f'Unsupported local target: {system or "unknown"}') from error
 
 
 def resolve_local_architecture() -> str:
@@ -200,14 +270,37 @@ def verify_archive(path: Path, expected_sha256: str) -> None:
     )
 
 
+def dependency_archive_path(dependency: DependencyPin, context: BuildContext) -> Path:
+  """Return the cached archive path for a pinned dependency."""
+
+  return context.downloads_dir / dependency.archive.filename
+
+
+def download_dependencies(dependencies: Sequence[DependencyPin], context: BuildContext) -> None:
+  """Download every pinned dependency archive before verification or building."""
+
+  for dependency in dependencies:
+    download_archive(dependency.archive, context.downloads_dir)
+
+
+def verify_dependency_archives(
+  dependencies: Sequence[DependencyPin], context: BuildContext
+) -> None:
+  """Verify every downloaded archive against its pinned SHA-256 digest."""
+
+  for dependency in dependencies:
+    archive_path = dependency_archive_path(dependency, context)
+    verify_archive(archive_path, dependency.archive.sha256)
+    print(f'Verified download: {archive_path.name}')
+
+
 def download_archive(archive: ArchivePin, downloads_dir: Path) -> Path:
-  """Download and verify an archive, or reuse an already verified cached copy."""
+  """Download an archive, or reuse an existing cached copy for later verification."""
 
   downloads_dir.mkdir(parents=True, exist_ok=True)
   destination = downloads_dir / archive.filename
   if destination.is_file():
-    verify_archive(destination, archive.sha256)
-    print(f'Using verified download: {destination.name}')
+    print(f'Using cached download: {destination.name}')
     return destination
 
   temporary = destination.with_suffix(f'{destination.suffix}.part')
@@ -217,7 +310,6 @@ def download_archive(archive: ArchivePin, downloads_dir: Path) -> Path:
   try:
     with urllib.request.urlopen(archive.url) as response, temporary.open('wb') as output:
       shutil.copyfileobj(response, output)
-    verify_archive(temporary, archive.sha256)
     temporary.replace(destination)
   except Exception:
     temporary.unlink(missing_ok=True)
@@ -250,9 +342,11 @@ def extract_archive(archive_path: Path, archive: ArchivePin, sources_dir: Path) 
 
 
 def prepare_source(dependency: DependencyPin, context: BuildContext) -> Path:
-  """Download, verify, and extract a dependency into the shared build workspace."""
+  """Extract a previously downloaded and verified dependency archive."""
 
-  archive_path = download_archive(dependency.archive, context.downloads_dir)
+  archive_path = dependency_archive_path(dependency, context)
+  if not archive_path.is_file():
+    raise ValueError(f'Dependency archive does not exist: {archive_path}')
   return extract_archive(archive_path, dependency.archive, context.sources_dir)
 
 
@@ -275,18 +369,20 @@ def apply_patch(source_dir: Path, patch_path: Path) -> None:
 
 
 def cmake_build(
+  context: BuildContext,
   source_dir: Path,
   build_dir: Path,
   install_dir: Path,
   *,
-  flags: Sequence[str] = (),
+  flags: tuple[str, ...] = (),
   patch_path: Path | None = None,
 ) -> None:
   """Configure, build, and install a CMake dependency with Ninja.
 
-  ``source_dir`` contains the dependency source, ``build_dir`` is recreated for
-  a clean out-of-tree build, and ``install_dir`` is the dependency installation
-  prefix. ``flags`` contains additional CMake configuration arguments such as
+  ``context`` supplies the target compiler and architecture. ``source_dir``
+  contains the dependency source, ``build_dir`` is recreated for a clean
+  out-of-tree build, and ``install_dir`` is the dependency installation prefix.
+  ``flags`` contains dependency-specific CMake configuration arguments such as
   ``-DFEATURE_x=OFF``. When supplied, ``patch_path`` is applied before configure.
   """
 
@@ -297,6 +393,12 @@ def cmake_build(
     shutil.rmtree(build_dir)
   build_dir.mkdir(parents=True)
   install_dir.mkdir(parents=True, exist_ok=True)
+
+  cmake_flags = ('-DCMAKE_C_COMPILER=clang', '-DCMAKE_CXX_COMPILER=clang++')
+  if context.target == 'darwin':
+    architectures = {'arm64': 'arm64', 'x86_64': 'x86_64', 'universal': 'arm64;x86_64'}
+    cmake_flags += (f'-DCMAKE_OSX_ARCHITECTURES={architectures[context.architecture]}',)
+  cmake_flags += flags
 
   run_command(
     (
@@ -309,11 +411,12 @@ def cmake_build(
       'Ninja',
       '-DCMAKE_BUILD_TYPE=Release',
       f'-DCMAKE_INSTALL_PREFIX={install_dir}',
-      *flags,
+      *cmake_flags,
     ),
     cwd=source_dir,
   )
-  run_command(('cmake', '--build', build_dir, '--parallel'), cwd=source_dir)
+  parallel_jobs = os.cpu_count() or 1
+  run_command(('cmake', '--build', build_dir, '--parallel', str(parallel_jobs)), cwd=source_dir)
   run_command(('cmake', '--install', build_dir), cwd=source_dir)
 
 
