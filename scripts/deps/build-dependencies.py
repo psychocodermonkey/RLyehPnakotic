@@ -111,6 +111,9 @@ def main(deps_dir: Path, target: str, arch: str) -> int:
   build_qtbase(context, QTBASE)
   build_qtdeclarative(context, QTDECLARATIVE)
 
+  shutil.rmtree(context.build_root)
+  print(f'Removed build workspace: {context.build_root}')
+
   return 0
 
 
