@@ -2,7 +2,7 @@
 
 <p align="center">
   <img
-    src="assets/vaulketh-cryptex.png"
+    src="assets/img/vaulketh-cryptex.png"
     alt="Vaul'keth"
     width="300"
   />
