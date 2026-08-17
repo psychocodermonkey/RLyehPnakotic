@@ -14,6 +14,16 @@
     under certain conditions; type `show c' for details.
 
 ........1.........2.........3.........4.........5.........6.........7.........8.........9.........0.........1.........2.........3..
+
+Basic usage:
+  python3 scripts/deps/build-dependencies.py --target darwin --arch universal
+  python3 scripts/deps/build-dependencies.py --target linux --arch '*LOCAL'
+
+The required target is one of ``darwin``, ``linux``, ``android``, or ``winnt``.
+The architecture may be ``universal``, ``arm64``, ``x86_64``, or ``*LOCAL``;
+``universal`` is valid only for Darwin, while ``*LOCAL`` resolves the current
+process architecture. ``--deps`` selects the final installation directory and
+defaults to the repository's ``deps`` directory.
 """
 
 import argparse
@@ -47,6 +57,13 @@ SUPPORTED_ARCHITECTURES = {
 
 @dataclass(frozen=True)
 class BuildContext:
+  """Resolved paths and target information shared by dependency build helpers.
+
+  ``target`` and ``architecture`` have already been validated against
+  ``SUPPORTED_ARCHITECTURES``. Path fields are absolute except for no promised
+  relationship between the build workspace and the requested install directory.
+  """
+
   repository_root: Path
   deps_dir: Path
   build_root: Path
@@ -57,6 +74,14 @@ class BuildContext:
 
 
 def main(deps_dir: Path, target: str, arch: str) -> int:
+  """Validate the request and build each pinned dependency in prerequisite order.
+
+  ``deps_dir`` is the final installation prefix, relative to the repository root
+  unless absolute. ``target`` accepts ``darwin``, ``linux``, ``android``, or
+  ``winnt``. ``arch`` accepts ``arm64``, ``x86_64``, Darwin-only ``universal``,
+  or ``*LOCAL`` to detect the current process architecture.
+  """
+
   resolved_arch = resolve_local_architecture() if arch == LOCAL_ARCHITECTURE else arch
   try:
     valid_architectures = SUPPORTED_ARCHITECTURES[target]
@@ -88,6 +113,8 @@ def main(deps_dir: Path, target: str, arch: str) -> int:
 
 
 def resolve_local_architecture() -> str:
+  """Return the current process architecture as ``arm64`` or ``x86_64``."""
+
   machine = platform.machine().lower()
   aliases = {'aarch64': 'arm64', 'amd64': 'x86_64', 'arm64': 'arm64', 'x86_64': 'x86_64'}
 
@@ -98,10 +125,14 @@ def resolve_local_architecture() -> str:
 
 
 def parse_architecture(value: str) -> str:
+  """Normalize an architecture argument while preserving the ``*LOCAL`` sentinel."""
+
   return LOCAL_ARCHITECTURE if value.upper() == LOCAL_ARCHITECTURE else value.lower()
 
 
 def resolve_deps_directory(deps_dir: Path) -> Path:
+  """Resolve an absolute install prefix from an absolute or repository-relative path."""
+
   if deps_dir.is_absolute():
     return deps_dir.resolve()
 
@@ -110,6 +141,8 @@ def resolve_deps_directory(deps_dir: Path) -> Path:
 
 
 def validate_dependency_pins(dependencies: Sequence[DependencyPin]) -> None:
+  """Validate unique, secure pins arranged in explicit prerequisite order."""
+
   names: set[str] = set()
   filenames: set[str] = set()
 
@@ -147,6 +180,8 @@ def validate_dependency_pins(dependencies: Sequence[DependencyPin]) -> None:
 
 
 def sha256_digest(path: Path) -> str:
+  """Return the lowercase SHA-256 digest of the file at ``path``."""
+
   digest = hashlib.sha256()
   with path.open('rb') as source:
     while chunk := source.read(1024 * 1024):
@@ -155,6 +190,8 @@ def sha256_digest(path: Path) -> str:
 
 
 def verify_archive(path: Path, expected_sha256: str) -> None:
+  """Require ``path`` to match the expected 64-character SHA-256 digest."""
+
   actual_sha256 = sha256_digest(path)
   if actual_sha256 != expected_sha256.lower():
     raise ValueError(
@@ -164,6 +201,8 @@ def verify_archive(path: Path, expected_sha256: str) -> None:
 
 
 def download_archive(archive: ArchivePin, downloads_dir: Path) -> Path:
+  """Download and verify an archive, or reuse an already verified cached copy."""
+
   downloads_dir.mkdir(parents=True, exist_ok=True)
   destination = downloads_dir / archive.filename
   if destination.is_file():
@@ -188,6 +227,8 @@ def download_archive(archive: ArchivePin, downloads_dir: Path) -> Path:
 
 
 def extract_archive(archive_path: Path, archive: ArchivePin, sources_dir: Path) -> Path:
+  """Safely replace and return the source tree extracted from ``archive_path``."""
+
   sources_dir.mkdir(parents=True, exist_ok=True)
   destination = sources_dir / archive.source_directory
   if destination.exists():
@@ -209,6 +250,8 @@ def extract_archive(archive_path: Path, archive: ArchivePin, sources_dir: Path) 
 
 
 def prepare_source(dependency: DependencyPin, context: BuildContext) -> Path:
+  """Download, verify, and extract a dependency into the shared build workspace."""
+
   archive_path = download_archive(dependency.archive, context.downloads_dir)
   return extract_archive(archive_path, dependency.archive, context.sources_dir)
 
@@ -216,12 +259,16 @@ def prepare_source(dependency: DependencyPin, context: BuildContext) -> Path:
 def run_command(
   command: Sequence[str | Path], *, cwd: Path, environment: Mapping[str, str] | None = None
 ) -> None:
+  """Run ``command`` in ``cwd`` with an optional complete process environment."""
+
   arguments = [str(argument) for argument in command]
   print(f'Running: {shlex.join(arguments)}', flush=True)
   subprocess.run(arguments, cwd=cwd, env=environment, check=True)
 
 
 def apply_patch(source_dir: Path, patch_path: Path) -> None:
+  """Apply a required unified patch to ``source_dir`` using ``patch -p1``."""
+
   if not patch_path.is_file():
     raise ValueError(f'Patch file does not exist: {patch_path}')
   run_command(('patch', '--batch', '--forward', '-p1', '-i', patch_path.resolve()), cwd=source_dir)
@@ -235,6 +282,14 @@ def cmake_build(
   flags: Sequence[str] = (),
   patch_path: Path | None = None,
 ) -> None:
+  """Configure, build, and install a CMake dependency with Ninja.
+
+  ``source_dir`` contains the dependency source, ``build_dir`` is recreated for
+  a clean out-of-tree build, and ``install_dir`` is the dependency installation
+  prefix. ``flags`` contains additional CMake configuration arguments such as
+  ``-DFEATURE_x=OFF``. When supplied, ``patch_path`` is applied before configure.
+  """
+
   if patch_path is not None:
     apply_patch(source_dir, patch_path)
 
@@ -263,6 +318,8 @@ def cmake_build(
 
 
 def create_build_context(deps_dir: Path, target: str, architecture: str) -> BuildContext:
+  """Create the path layout for an already validated target and architecture."""
+
   repository_root = Path(__file__).resolve().parents[2]
   build_root = repository_root / 'deps-build'
   return BuildContext(
