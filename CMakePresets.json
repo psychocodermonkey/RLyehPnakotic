@@ -7,7 +7,8 @@
       "generator": "Ninja",
       "binaryDir": "${sourceDir}/build/${presetName}",
       "cacheVariables": {
-        "RLYEH_PNAKOTIC_BUILD_TESTS": "ON"
+        "RLYEH_PNAKOTIC_BUILD_TESTS": "ON",
+        "RLYEH_PNAKOTIC_BUILD_APP": "OFF"
       }
     },
     {
@@ -25,6 +26,32 @@
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Release"
       }
+    },
+    {
+      "name": "mac-gui-base",
+      "hidden": true,
+      "inherits": "base",
+      "cacheVariables": {
+        "CMAKE_OSX_ARCHITECTURES": "arm64;x86_64",
+        "CMAKE_PREFIX_PATH": "${sourceDir}/deps/Qt/6.11.1/darwin-universal",
+        "RLYEH_PNAKOTIC_BUILD_APP": "ON"
+      }
+    },
+    {
+      "name": "debug-mac-gui",
+      "displayName": "macOS Universal GUI (Debug)",
+      "inherits": "mac-gui-base",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug"
+      }
+    },
+    {
+      "name": "release-mac-gui",
+      "displayName": "macOS Universal GUI (Release)",
+      "inherits": "mac-gui-base",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release"
+      }
     }
   ],
   "buildPresets": [
@@ -35,6 +62,14 @@
     {
       "name": "release",
       "configurePreset": "release"
+    },
+    {
+      "name": "debug-mac-gui",
+      "configurePreset": "debug-mac-gui"
+    },
+    {
+      "name": "release-mac-gui",
+      "configurePreset": "release-mac-gui"
     }
   ],
   "testPresets": [
@@ -48,6 +83,20 @@
     {
       "name": "release",
       "configurePreset": "release",
+      "output": {
+        "outputOnFailure": true
+      }
+    },
+    {
+      "name": "debug-mac-gui",
+      "configurePreset": "debug-mac-gui",
+      "output": {
+        "outputOnFailure": true
+      }
+    },
+    {
+      "name": "release-mac-gui",
+      "configurePreset": "release-mac-gui",
       "output": {
         "outputOnFailure": true
       }
