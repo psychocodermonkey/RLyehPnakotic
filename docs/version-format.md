@@ -10,7 +10,7 @@ SCM format described here.
 
 Pnakotic exists to give R'Lyeh projects a reproducible public development version without exposing an immediately
 readable date or build sequence and without suggesting semantic-version precedence. Its intentionally strange output is
-still a compact source locator: a project policy supplies the calendar context, and the decoded date plus hash suffix
+still a compact source locator: a project policy supplies the calendar context, and the decoded date plus hash prefix
 narrows the corresponding repository search.
 
 The format favors one authoritative, reversible implementation over convenience shortcuts. In particular:
@@ -23,11 +23,11 @@ The format favors one authoritative, reversible implementation over convenience 
 - signed components are normal values chosen to make the result visibly unlike a chronological semantic version.
 
 These properties are format decisions. Changing field widths, constants, round count, signed rendering, parity
-placement, or the rightmost-hash convention creates a different format even if the replacement appears simpler.
+placement, or the hash-prefix convention creates a different format even if the replacement appears simpler.
 
 ## Inputs and epoch
 
-The SCM encoder uses the checked-out `HEAD` commit's `%cs` committer calendar date and the rightmost six hexadecimal
+The SCM encoder uses the checked-out `HEAD` commit's `%cs` committer calendar date and the first six hexadecimal
 characters of its full hash. Dirty working-tree state does not affect the encoded value. Branch, describe string, full
 hash, and full ISO-8601 committer timestamp remain available as separate build metadata.
 
@@ -41,10 +41,10 @@ The logical payload is exactly 39 bits:
 
 ```text
 bits 38..24  signed 15-bit two's-complement day delta from the epoch
-bits 23..0   numeric value of the rightmost six commit-hash characters
+bits 23..0   numeric value of the first six commit-hash characters
 ```
 
-The valid date range is `-16384..16383` days and the hash suffix range is `0x000000..0xFFFFFF`.
+The valid date range is `-16384..16383` days and the hash prefix range is `0x000000..0xFFFFFF`.
 
 One even-parity bit is appended as the least-significant bit:
 
@@ -151,6 +151,6 @@ This keeps source-control interrogation and build-metadata generation in the con
 authoritative encoder and decoder in Pnakotic. Because the API is `constexpr`, consumers such as R'Lyeh PSX can compute
 their public version during compilation without a runtime dependency or a second implementation of the format.
 
-Decoding returns only the commit calendar date and six-digit hash suffix. Resolving that locator to a complete commit,
+Decoding returns only the commit calendar date and six-digit hash prefix. Resolving that locator to a complete commit,
 and displaying any other repository metadata such as branch, tag, describe string, or dirty state, remain consumer
 responsibilities outside Pnakotic.
