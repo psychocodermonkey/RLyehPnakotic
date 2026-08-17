@@ -17,7 +17,14 @@
 
 from dataclasses import dataclass
 
-__all__ = ('ArchivePin', 'DependencyPin', 'QTBASE', 'QTDECLARATIVE', 'DEPENDENCIES')
+__all__ = (
+  'ArchivePin',
+  'DependencyPin',
+  'QTBASE',
+  'QTSHADERTOOLS',
+  'QTDECLARATIVE',
+  'DEPENDENCIES',
+)
 
 
 @dataclass(frozen=True)
@@ -54,6 +61,22 @@ QTBASE = DependencyPin(
   flags=('-DQT_BUILD_EXAMPLES=OFF', '-DQT_BUILD_TESTS=OFF', '-DQT_INSTALL_CONFIG_INFO_FILES=OFF'),
 )
 
+QTSHADERTOOLS = DependencyPin(
+  name='qtshadertools',
+  version='6.11.1',
+  archive=ArchivePin(
+    filename='qtshadertools-everywhere-src-6.11.1.tar.xz',
+    url=(
+      'https://download.qt.io/official_releases/qt/6.11/6.11.1/submodules/'
+      'qtshadertools-everywhere-src-6.11.1.tar.xz'
+    ),
+    sha256='2075052f9b23bcf9de045bbd180037084942f82cce870aab14a1454902c982fc',
+    source_directory='qtshadertools-everywhere-src-6.11.1',
+  ),
+  dependencies=('qtbase',),
+  flags=('-DQT_BUILD_EXAMPLES=OFF', '-DQT_BUILD_TESTS=OFF', '-DQT_INSTALL_CONFIG_INFO_FILES=OFF'),
+)
+
 QTDECLARATIVE = DependencyPin(
   name='qtdeclarative',
   version='6.11.1',
@@ -66,8 +89,8 @@ QTDECLARATIVE = DependencyPin(
     sha256='52e670f670b0304f534b24f98c47ceb8a41bb710464414ebc9527ec71cc86aa4',
     source_directory='qtdeclarative-everywhere-src-6.11.1',
   ),
-  dependencies=('qtbase',),
+  dependencies=('qtbase', 'qtshadertools'),
   flags=('-DQT_BUILD_EXAMPLES=OFF', '-DQT_BUILD_TESTS=OFF', '-DQT_INSTALL_CONFIG_INFO_FILES=OFF'),
 )
 
-DEPENDENCIES: tuple[DependencyPin, ...] = (QTBASE, QTDECLARATIVE)
+DEPENDENCIES: tuple[DependencyPin, ...] = (QTBASE, QTSHADERTOOLS, QTDECLARATIVE)

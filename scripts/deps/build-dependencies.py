@@ -109,6 +109,7 @@ def main(deps_dir: Path, target: str, arch: str) -> int:
 
   # Dependency-specific build calls belong here in explicit prerequisite order.
   build_qtbase(context, QTBASE)
+  build_qtshadertools(context, QTSHADERTOOLS)
   build_qtdeclarative(context, QTDECLARATIVE)
 
   shutil.rmtree(context.build_root)
@@ -128,6 +129,17 @@ def build_qtbase(context: BuildContext, dependency: DependencyPin) -> None:
     dependency_build_directory(context, dependency),
     install_dir,
     flags=dependency.flags,
+  )
+
+
+def build_qtshadertools(context: BuildContext, dependency: DependencyPin) -> None:
+  """Build Qt Shader Tools against QtBase in the shared Qt prefix."""
+
+  install_dir = qt_install_directory(context, dependency.version)
+  flags = dependency.flags + (f'-DQt6_ROOT={install_dir}', f'-DCMAKE_PREFIX_PATH={install_dir}')
+  source_dir = prepare_source(dependency, context)
+  cmake_build(
+    context, source_dir, dependency_build_directory(context, dependency), install_dir, flags=flags
   )
 
 
