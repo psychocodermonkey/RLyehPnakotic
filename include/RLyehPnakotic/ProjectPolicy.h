@@ -57,7 +57,7 @@ inline constexpr std::array Supported = {RLyehPSX};
   return EncodeSCMVersion(commit_date, full_hash, project.epoch);
 }
 
-// Reconstructs the date and rightmost hash suffix under the selected project's
+// Reconstructs the date and leading hash prefix under the selected project's
 // epoch. It returns a locator, not complete Git provenance or a resolved commit.
 [[nodiscard]] constexpr SCMLocatorResult DecodeSCMVersion(const ProjectPolicy& project, std::string_view version)
 {

@@ -1,5 +1,17 @@
-# osx annoyances
+# OS Files to exclude
+Desktop.ini
+Thumbs.db
+ehthumbs.db
+Icon?
 .DS_Store
+._.DS_Store
+.Spotlight-V100
+.Trashes
+
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
 
 # binaries folder
 /bin/
@@ -42,6 +54,52 @@ CMakeLists.txt.user
 # python bytecode
 __pycache__
 
+# Distribution / packaging
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+pip-wheel-metadata/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Environments
+.env
+.venv
+.uv-cache/
+.uv-python/
+.direnv
+.vscode
+*.code-workspaceenv/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# Ruff
+.ruff_cache
+
+# Pyre type checker
+.pyre/
+
+# pytype static type analyzer
+.pytype/
+
 # other repos
 /android
 
+# dependency build temp files
+deps-build/
+/deps/

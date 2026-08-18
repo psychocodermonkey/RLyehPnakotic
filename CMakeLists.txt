@@ -6,6 +6,7 @@ include(CMakePackageConfigHelpers)
 include(GNUInstallDirs)
 
 option(RLYEH_PNAKOTIC_BUILD_TESTS "Build R'Lyeh Pnakotic tests" ${PROJECT_IS_TOP_LEVEL})
+option(RLYEH_PNAKOTIC_BUILD_APP "Build the R'Lyeh Pnakotic Qt application" OFF)
 
 add_library(RLyehPnakotic INTERFACE)
 add_library(RLyeh::Pnakotic ALIAS RLyehPnakotic)
@@ -63,6 +64,12 @@ install(FILES LICENSE
   DESTINATION "${CMAKE_INSTALL_DATADIR}/RLyehPnakotic"
   COMPONENT RLyehPnakotic
 )
+
+if(RLYEH_PNAKOTIC_BUILD_APP)
+  find_package(Qt6 6.11 REQUIRED COMPONENTS Quick QuickControls2)
+  qt_standard_project_setup(REQUIRES 6.8)
+  add_subdirectory(app)
+endif()
 
 if(RLYEH_PNAKOTIC_BUILD_TESTS)
   enable_testing()
