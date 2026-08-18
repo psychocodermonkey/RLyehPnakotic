@@ -2,15 +2,15 @@
 
 <p align="center">
   <img
-    src="assets/vaulketh-cryptex.png"
+    src="assets/img/vaulketh-cryptex.png"
     alt="Vaul'keth"
     width="300"
   />
 </p>
 
 R'Lyeh Pnakotic is the reusable C++20 implementation of the R'Lyeh public version format. It converts a project policy,
-a commit calendar date, and the rightmost six hexadecimal digits of a commit hash into a deterministic four-component
-version such as `232.-92.-378.172`. It can reverse that version into a date and six-digit hash suffix suitable for
+a commit calendar date, and the first six hexadecimal digits of a commit hash into a deterministic four-component
+version such as `141.-422.-5.-149`. It can reverse that version into a date and six-digit hash prefix suitable for
 locating the authoritative commit.
 
 The format is deterministic reversible obfuscation for public version branding. It is not encryption and provides no
@@ -69,7 +69,7 @@ SCMLocatorResult DecodeForProject(const ProjectPolicy& project,
 ```
 
 Dates use strict `YYYY-MM-DD` form. A hash must contain at least six hexadecimal characters; the encoder validates the
-entire supplied value and stores its rightmost six characters as the 24-bit locator. Encoding and decoding return a
+entire supplied value and stores its first six characters as the 24-bit locator. Encoding and decoding return a
 status plus `valid()` rather than throwing exceptions. The APIs and their fixed-capacity result strings support constant
 evaluation, allowing consumers to derive public versions during compilation.
 

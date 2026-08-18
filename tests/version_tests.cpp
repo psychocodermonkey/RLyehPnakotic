@@ -18,7 +18,7 @@ constexpr std::string_view TEST_EPOCH = "2026-05-31";
 constexpr SCMVersionResult COMPILE_TIME_KNOWN_VERSION = EncodeSCMVersion(
   Projects::RLyehPSX, "2026-08-11", "c6ccd1117607ffac251ae29340f778ba72cc7587");
 static_assert(COMPILE_TIME_KNOWN_VERSION.valid());
-static_assert(COMPILE_TIME_KNOWN_VERSION.version.view() == "232.-92.-378.172");
+static_assert(COMPILE_TIME_KNOWN_VERSION.version.view() == "141.-422.-5.-149");
 static_assert(Projects::RLyehPSX.epoch == TEST_EPOCH);
 
 TEST(PnakoticCodec, GeneratesConstantsDeterministically)
@@ -45,7 +45,7 @@ TEST(PnakoticCodec, EncodesKnownPayloads)
     Vector{0x0000FFFFFFull, 0x0001FFFFFEull, 0x09EBF6114Cull, "39.-321.388.332"},
     Vector{0x4000000000ull, 0x8000000001ull, 0xFC2EFE1A47ull, "-16.-273.-122.-441"},
     Vector{0x3FFFFFFFFFull, 0x7FFFFFFFFEull, 0x045E967D66ull, "17.489.415.358"},
-    Vector{0x0048CC7587ull, 0x009198EB0Full, 0x3A3A4A18ACull, "232.-92.-378.172"},
+    Vector{0x0048C6CCD1ull, 0x00918D99A2ull, 0x2365AFEF6Bull, "141.-422.-5.-149"},
   };
 
   for (const Vector& vector : vectors)
@@ -138,14 +138,14 @@ TEST(PnakoticPolicy, EncodesAndDecodesKnownLocator)
     EncodeSCMVersion(Projects::RLyehPSX, "2026-08-11", "c6ccd1117607ffac251ae29340f778ba72cc7587");
   ASSERT_TRUE(encoded.valid());
   EXPECT_EQ(encoded.date_delta, 72);
-  EXPECT_EQ(encoded.commit_suffix, 0xCC7587u);
-  EXPECT_EQ(encoded.version.view(), "232.-92.-378.172");
+  EXPECT_EQ(encoded.commit_prefix, 0xC6CCD1u);
+  EXPECT_EQ(encoded.version.view(), "141.-422.-5.-149");
 
   const SCMLocatorResult decoded = DecodeSCMVersion(Projects::RLyehPSX, encoded.version.view());
   ASSERT_TRUE(decoded.valid());
   EXPECT_EQ(decoded.date_delta, 72);
   EXPECT_EQ(decoded.commit_date.view(), "2026-08-11");
-  EXPECT_EQ(decoded.commit_suffix.view(), "cc7587");
+  EXPECT_EQ(decoded.commit_prefix.view(), "c6ccd1");
 }
 
 TEST(PnakoticPolicy, HandlesSignedDateDeltaBoundaries)
@@ -166,15 +166,15 @@ TEST(PnakoticPolicy, HandlesSignedDateDeltaBoundaries)
   EXPECT_EQ(EncodeSCMVersion("2071-04-09", "ffffff", TEST_EPOCH).status, PolicyStatus::DateDeltaOutOfRange);
 }
 
-TEST(PnakoticPolicy, HandlesCommitSuffixBoundaries)
+TEST(PnakoticPolicy, HandlesCommitPrefixBoundaries)
 {
   const SCMVersionResult minimum = EncodeSCMVersion("2026-05-31", "000000", TEST_EPOCH);
   ASSERT_TRUE(minimum.valid());
-  EXPECT_EQ(minimum.commit_suffix, 0u);
+  EXPECT_EQ(minimum.commit_prefix, 0u);
 
   const SCMVersionResult maximum = EncodeSCMVersion("2026-05-31", "FFFFFF", TEST_EPOCH);
   ASSERT_TRUE(maximum.valid());
-  EXPECT_EQ(maximum.commit_suffix, 0xFFFFFFu);
+  EXPECT_EQ(maximum.commit_prefix, 0xFFFFFFu);
 }
 
 TEST(PnakoticPolicy, HandlesMissingAndInvalidSCMInformation)

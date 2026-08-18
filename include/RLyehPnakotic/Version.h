@@ -13,12 +13,12 @@
 
 namespace RLyeh::Pnakotic {
 
-// The 39-bit policy payload is [15-bit signed day delta][24-bit hash suffix].
+// The 39-bit policy payload is [15-bit signed day delta][24-bit hash prefix].
 // Fifteen bits provide a range around each project's epoch while preserving
 // six hexadecimal characters of commit identity.
 inline constexpr std::int32_t MINIMUM_DATE_DELTA = -16384;
 inline constexpr std::int32_t MAXIMUM_DATE_DELTA = 16383;
-inline constexpr std::uint32_t COMMIT_SUFFIX_MASK = 0xFFFFFFu;
+inline constexpr std::uint32_t COMMIT_PREFIX_MASK = 0xFFFFFFu;
 
 // PolicyStatus reports input and representation failures without requiring
 // exceptions, keeping the complete API suitable for constant evaluation.
@@ -44,7 +44,7 @@ struct DateString
   [[nodiscard]] constexpr std::string_view view() const { return {characters.data(), 10}; }
 };
 
-struct HashSuffixString
+struct HashPrefixString
 {
   std::array<char, 7> characters{};
 
@@ -60,19 +60,19 @@ struct SCMVersionResult
   PolicyStatus status = PolicyStatus::InvalidCommitDate;
   PublicVersionString version = PublicVersionString::Fallback();
   std::int32_t date_delta = 0;
-  std::uint32_t commit_suffix = 0;
+  std::uint32_t commit_prefix = 0;
 
   [[nodiscard]] constexpr bool valid() const { return status == PolicyStatus::Valid; }
 };
 
-// A decoded locator deliberately contains only the calendar date and rightmost
+// A decoded locator deliberately contains only the calendar date and leading
 // six hash characters. Resolving a full commit remains a consumer repository
 // operation outside Pnakotic.
 struct SCMLocatorResult
 {
   PolicyStatus status = PolicyStatus::MalformedPublicVersion;
   DateString commit_date{};
-  HashSuffixString commit_suffix{};
+  HashPrefixString commit_prefix{};
   std::int32_t date_delta = 0;
 
   [[nodiscard]] constexpr bool valid() const { return status == PolicyStatus::Valid; }
@@ -126,16 +126,15 @@ struct ParsedDate
   return -1;
 }
 
-struct ParsedCommitSuffix
+struct ParsedCommitPrefix
 {
   bool valid = false;
   std::uint32_t value = 0;
 };
 
-// Validates the entire supplied hexadecimal identity, then extracts its
-// rightmost six characters. This is a 24-bit suffix locator, deliberately not
-// Git's conventional leading abbreviated hash.
-[[nodiscard]] constexpr ParsedCommitSuffix ParseCommitSuffix(std::string_view full_hash)
+// Validates the entire supplied hexadecimal identity, then extracts its first
+// six characters. This is Git's conventional 24-bit abbreviated hash prefix.
+[[nodiscard]] constexpr ParsedCommitPrefix ParseCommitPrefix(std::string_view full_hash)
 {
   if (full_hash.size() < 6)
     return {};
@@ -146,10 +145,10 @@ struct ParsedCommitSuffix
       return {};
   }
 
-  std::uint32_t suffix = 0;
-  for (std::size_t i = full_hash.size() - 6; i < full_hash.size(); i++)
-    suffix = (suffix << 4) | static_cast<std::uint32_t>(HexDigitValue(full_hash[i]));
-  return {true, suffix};
+  std::uint32_t prefix = 0;
+  for (std::size_t i = 0; i < 6; i++)
+    prefix = (prefix << 4) | static_cast<std::uint32_t>(HexDigitValue(full_hash[i]));
+  return {true, prefix};
 }
 
 [[nodiscard]] constexpr PolicyStatus PolicyStatusFromCodecStatus(CodecStatus status)
@@ -173,7 +172,7 @@ struct ParsedCommitSuffix
 // Most consumers should prefer the ProjectPolicy overload in ProjectPolicy.h
 // so epochs remain authoritative rather than being duplicated at call sites.
 //
-// The policy layout is [15-bit signed day delta][24-bit commit suffix]. Input
+// The policy layout is [15-bit signed day delta][24-bit commit prefix]. Input
 // failures return a specific status and the 0.0.0.0 fallback representation.
 [[nodiscard]] constexpr SCMVersionResult EncodeSCMVersion(std::string_view commit_date, std::string_view full_hash,
                                                           std::string_view epoch)
@@ -186,8 +185,8 @@ struct ParsedCommitSuffix
   if (!parsed_epoch.valid)
     return {PolicyStatus::InvalidEpoch};
 
-  const ParsedCommitSuffix parsed_suffix = ParseCommitSuffix(full_hash);
-  if (!parsed_suffix.valid)
+  const ParsedCommitPrefix parsed_prefix = ParseCommitPrefix(full_hash);
+  if (!parsed_prefix.valid)
     return {PolicyStatus::InvalidCommitHash};
 
   const auto delta_count = (parsed_commit_date.day - parsed_epoch.day).count();
@@ -196,9 +195,9 @@ struct ParsedCommitSuffix
 
   const std::int32_t date_delta = static_cast<std::int32_t>(delta_count);
   const std::uint64_t encoded_date = static_cast<std::uint32_t>(date_delta) & 0x7FFFu;
-  const std::uint64_t payload = (encoded_date << 24) | parsed_suffix.value;
+  const std::uint64_t payload = (encoded_date << 24) | parsed_prefix.value;
   const EncodeResult encoded = EncodePayload(payload);
-  return {PolicyStatus::Valid, encoded.version, date_delta, parsed_suffix.value};
+  return {PolicyStatus::Valid, encoded.version, date_delta, parsed_prefix.value};
 }
 
 [[nodiscard]] constexpr DateString FormatCalendarDate(std::chrono::sys_days day)
@@ -222,14 +221,14 @@ struct ParsedCommitSuffix
   return output;
 }
 
-[[nodiscard]] constexpr HashSuffixString FormatCommitSuffix(std::uint32_t suffix)
+[[nodiscard]] constexpr HashPrefixString FormatCommitPrefix(std::uint32_t prefix)
 {
   constexpr std::string_view HEX_DIGITS = "0123456789abcdef";
-  HashSuffixString output;
+  HashPrefixString output;
   for (std::size_t i = 0; i < 6; i++)
   {
     const unsigned shift = static_cast<unsigned>((5 - i) * 4);
-    output.characters[i] = HEX_DIGITS[(suffix >> shift) & 0xFu];
+    output.characters[i] = HEX_DIGITS[(prefix >> shift) & 0xFu];
   }
   return output;
 }
@@ -250,13 +249,13 @@ struct ParsedCommitSuffix
   const std::uint16_t encoded_date = static_cast<std::uint16_t>((decoded.logical_payload >> 24) & 0x7FFFu);
   const std::int32_t date_delta = (encoded_date & 0x4000u) != 0 ? static_cast<std::int32_t>(encoded_date) - 0x8000 :
                                                                   static_cast<std::int32_t>(encoded_date);
-  const std::uint32_t suffix = static_cast<std::uint32_t>(decoded.logical_payload & COMMIT_SUFFIX_MASK);
+  const std::uint32_t prefix = static_cast<std::uint32_t>(decoded.logical_payload & COMMIT_PREFIX_MASK);
   const std::chrono::sys_days commit_day = parsed_epoch.day + std::chrono::days{date_delta};
   const std::chrono::year_month_day calendar_date{commit_day};
   const int year = static_cast<int>(calendar_date.year());
   if (!calendar_date.ok() || year < 1 || year > 9999)
     return {PolicyStatus::DateDeltaOutOfRange};
-  return {PolicyStatus::Valid, FormatCalendarDate(commit_day), FormatCommitSuffix(suffix), date_delta};
+  return {PolicyStatus::Valid, FormatCalendarDate(commit_day), FormatCommitPrefix(prefix), date_delta};
 }
 
 } // namespace RLyeh::Pnakotic
