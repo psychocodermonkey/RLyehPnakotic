@@ -52,6 +52,31 @@
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Release"
       }
+    },
+    {
+      "name": "linux-gui-base",
+      "hidden": true,
+      "inherits": "base",
+      "cacheVariables": {
+        "CMAKE_PREFIX_PATH": "${sourceDir}/deps/Qt/6.11.1/linux-x86_64",
+        "RLYEH_PNAKOTIC_BUILD_APP": "ON"
+      }
+    },
+    {
+      "name": "debug-linux-gui",
+      "displayName": "Linux x86_64 GUI (Debug)",
+      "inherits": "linux-gui-base",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug"
+      }
+    },
+    {
+      "name": "release-linux-gui",
+      "displayName": "Linux x86_64 GUI (Release)",
+      "inherits": "linux-gui-base",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release"
+      }
     }
   ],
   "buildPresets": [
@@ -70,6 +95,14 @@
     {
       "name": "release-mac-gui",
       "configurePreset": "release-mac-gui"
+    },
+    {
+      "name": "debug-linux-gui",
+      "configurePreset": "debug-linux-gui"
+    },
+    {
+      "name": "release-linux-gui",
+      "configurePreset": "release-linux-gui"
     }
   ],
   "testPresets": [
@@ -97,6 +130,20 @@
     {
       "name": "release-mac-gui",
       "configurePreset": "release-mac-gui",
+      "output": {
+        "outputOnFailure": true
+      }
+    },
+    {
+      "name": "debug-linux-gui",
+      "configurePreset": "debug-linux-gui",
+      "output": {
+        "outputOnFailure": true
+      }
+    },
+    {
+      "name": "release-linux-gui",
+      "configurePreset": "release-linux-gui",
       "output": {
         "outputOnFailure": true
       }
