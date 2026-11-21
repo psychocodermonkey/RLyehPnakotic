@@ -1,0 +1,11 @@
+Checks: >
+  bugprone-*,
+  performance-*,
+  modernize-use-nullptr,
+  modernize-use-override,
+  modernize-use-nodiscard,
+  -bugprone-macro-parentheses,
+  -bugprone-reserved-identifier,
+  -performance-enum-size
+
+HeaderFilterRegex: '^.*/src/.*'
