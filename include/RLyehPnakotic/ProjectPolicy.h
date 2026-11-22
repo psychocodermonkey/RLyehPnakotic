@@ -15,6 +15,7 @@ namespace RLyeh::Pnakotic {
 // permutation or payload format.
 enum class ProjectId {
   RLyehPSX,
+  RLyehPnakotic,
 };
 
 // A policy binds a R'Lyeh project to its single authoritative epoch. Consumers
@@ -29,6 +30,7 @@ struct ProjectPolicy {
 
 namespace Projects {
 
+// Define :: R'Lyeh PSX
 // The epoch remains provisional until the manually assigned R'Lyeh PSX 0.0.0
 // release. Its calendar date then replaces this value permanently. That
 // three-component release is a separate policy convention and is never emitted
@@ -40,9 +42,18 @@ inline constexpr ProjectPolicy RLyehPSX = {
   true,
 };
 
+// Define :: R'Lyeh Pnakotic
+// See assets/Cause?.png and assets/Effect?.png for epoc reasoning.
+inline constexpr ProjectPolicy RLyehPnakotic = {
+  ProjectId::RLyehPnakotic,
+  "R'Lyeh Pnakotic",
+  "2026-08-17",
+  false,
+};
+
 // Provides a constexpr inventory for tools such as the future GUI without
 // requiring them to reproduce the set of supported policies.
-inline constexpr std::array Supported = {RLyehPSX};
+inline constexpr std::array Supported = {RLyehPSX, RLyehPnakotic};
 
 } // namespace Projects
 
