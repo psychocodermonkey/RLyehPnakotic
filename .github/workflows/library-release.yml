@@ -163,7 +163,7 @@ jobs:
         run: |
           set -euo pipefail
           tag_pushed=0
-          tag="PNK_${RELEASE_VERSION}"
+          tag="Pnakotic_${RELEASE_VERSION}"
           report_partial() {
             status=$?
             if (( status != 0 && tag_pushed == 1 )); then
