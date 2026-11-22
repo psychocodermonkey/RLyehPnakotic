@@ -301,7 +301,7 @@ ApplicationWindow {
 
         Label {
           Layout.alignment: Qt.AlignHCenter
-          text: qsTr("The locator, not the time. · 0.0.0")
+          text: qsTr("The locator, not the time. · %1").arg(Qt.application.version)
           font.pixelSize: 12
         }
       }
@@ -328,8 +328,9 @@ ApplicationWindow {
     Label {
       width: parent.width
       text: qsTr("A deterministic, reversible public-version codec.\n\n"
-                 + "Application version 0.0.0\n"
+                 + "Application version %1\n"
                  + "Software licensed under GPL-3.0-only. Artwork and fonts retain their respective licenses.")
+            .arg(Qt.application.version)
       wrapMode: Text.WordWrap
     }
   }

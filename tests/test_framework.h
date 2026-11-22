@@ -4,6 +4,7 @@
 #pragma once
 
 #include <cstdio>
+#include <string_view>
 #include <vector>
 
 namespace TestFramework {
@@ -43,9 +44,17 @@ class Expectation
 {
 public:
   Expectation(bool passed, const char* file, int line, const char* expression)
+    : passed_(passed)
   {
     if (!passed)
       Fail(file, line, expression);
+  }
+
+  Expectation& operator<<(std::string_view context)
+  {
+    if (!passed_)
+      std::fprintf(stderr, "  case: %.*s\n", static_cast<int>(context.size()), context.data());
+    return *this;
   }
 
   template<typename T>
@@ -53,16 +62,31 @@ public:
   {
     return *this;
   }
+
+private:
+  bool passed_;
 };
+
+inline void ReportCommitSample(std::string_view date, std::string_view hash, bool passed)
+{
+  std::printf("    [ %s ] [ CASE ] %.*s %.*s\n", passed ? "PASS" : "FAIL", static_cast<int>(date.size()), date.data(),
+              static_cast<int>(hash.size()), hash.data());
+  std::fflush(stdout);
+}
 
 inline int RunAll()
 {
   for (const TestCase& test : Tests())
+  {
+    const int failures_before = failures;
     test.function();
+    std::printf("[ %s ] %s.%s\n", failures == failures_before ? "PASS" : "FAIL", test.suite, test.name);
+    std::fflush(stdout);
+  }
 
   if (failures == 0)
   {
-    std::printf("All %zu R'Lyeh Pnakotic tests passed.\n", Tests().size());
+    std::printf("All %zu registered R'Lyeh Pnakotic tests passed.\n", Tests().size());
     return 0;
   }
 

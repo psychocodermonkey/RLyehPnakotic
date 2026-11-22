@@ -15,12 +15,6 @@ using namespace RLyeh::Pnakotic;
 
 constexpr std::string_view TEST_EPOCH = "2026-05-31";
 
-constexpr SCMVersionResult COMPILE_TIME_KNOWN_VERSION = EncodeSCMVersion(
-  Projects::RLyehPSX, "2026-08-11", "c6ccd1117607ffac251ae29340f778ba72cc7587");
-static_assert(COMPILE_TIME_KNOWN_VERSION.valid());
-static_assert(COMPILE_TIME_KNOWN_VERSION.version.view() == "141.-422.-5.-149");
-static_assert(Projects::RLyehPSX.epoch == TEST_EPOCH);
-
 TEST(PnakoticCodec, GeneratesConstantsDeterministically)
 {
   constexpr std::array<std::uint32_t, FEISTEL_ROUNDS> expected = {
@@ -132,22 +126,6 @@ TEST(PnakoticCodec, RejectsComponentsOutsideSignedTenBitRange)
   EXPECT_EQ(ParsePublicVersion("999999.0.0.0").status, CodecStatus::ComponentOutOfRange);
 }
 
-TEST(PnakoticPolicy, EncodesAndDecodesKnownLocator)
-{
-  const SCMVersionResult encoded =
-    EncodeSCMVersion(Projects::RLyehPSX, "2026-08-11", "c6ccd1117607ffac251ae29340f778ba72cc7587");
-  ASSERT_TRUE(encoded.valid());
-  EXPECT_EQ(encoded.date_delta, 72);
-  EXPECT_EQ(encoded.commit_prefix, 0xC6CCD1u);
-  EXPECT_EQ(encoded.version.view(), "141.-422.-5.-149");
-
-  const SCMLocatorResult decoded = DecodeSCMVersion(Projects::RLyehPSX, encoded.version.view());
-  ASSERT_TRUE(decoded.valid());
-  EXPECT_EQ(decoded.date_delta, 72);
-  EXPECT_EQ(decoded.commit_date.view(), "2026-08-11");
-  EXPECT_EQ(decoded.commit_prefix.view(), "c6ccd1");
-}
-
 TEST(PnakoticPolicy, HandlesSignedDateDeltaBoundaries)
 {
   const SCMVersionResult minimum = EncodeSCMVersion("1981-07-22", "000000", TEST_EPOCH);
@@ -206,8 +184,3 @@ TEST(PnakoticPolicy, ZeroPublicBlockIsNaturallyInvalidByParity)
 }
 
 } // namespace
-
-int main()
-{
-  return TestFramework::RunAll();
-}

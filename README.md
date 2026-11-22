@@ -105,10 +105,72 @@ find_package(RLyehPnakotic CONFIG REQUIRED)
 target_link_libraries(your-target PRIVATE RLyeh::Pnakotic)
 ```
 
-Set `CMAKE_PREFIX_PATH` to the installation prefix, or set `RLyehPnakotic_DIR` directly to its package-metadata
-directory, when Pnakotic is installed outside a standard system prefix. The
-`RLyehPnakotic` install component contains only the header library, its CMake package metadata, and its license; tests
-and future application targets are separate.
+Set `CMAKE_PREFIX_PATH` to the installation prefix, or set `RLyehPnakotic_DIR` directly to its package-metadata directory,
+when Pnakotic is installed outside a standard system prefix. The `RLyehPnakotic` install component contains only the header
+library, its CMake package metadata, and its license; tests and future application targets are separate.
+
+## Future features
+
+<p align="center">
+  <img
+    src="assets/R'Lyeh Pnakotic UI Example.png"
+    alt="R'Lyeh Pnakotic UI concept"
+    width="700"
+  />
+</p>
+
+The current Qt Quick application is a functional proof of concept. The initial application targets are macOS, Linux,
+and Android. The UI concept above is the intended direction for a finished locator: a framed, dark eldritch workspace
+with the conversion controls on the left and a large Pnakotic/cryptex illustration on the right. The mockup predates
+the visible-hash correction, so its “suffix” label must be implemented as the current first-six-character hash **prefix**.
+
+The finished layout should provide:
+
+- a title bar with application controls and contextual help;
+- Decode and Encode tabs, with the selected project policy shared by both workflows;
+- a Decode form for a four-component public version, a clear Decode action, and decoded commit date, hash prefix, and validity fields;
+- an Encode form for a commit date and full hexadecimal hash, returning the public version and the same explicit validity feedback;
+- copy controls for useful outputs, Paste, Clear, and “swap to Encode/Decode” actions that carry compatible values across the two workflows; and
+- footer actions for About and the format specification, plus an application version display.
+
+### Reusable UI assets to prepare
+
+The concept should be decomposed into reusable assets rather than treated as one background image:
+
+- outer window-frame corners, edges, and repeatable border segments;
+- scalable source artwork plus landscape compositions that preserve the interface at 16:9 and remain usable at 3:2 and 4:3;
+- title-bar ornamentation plus minimize, maximize, close, and help buttons in normal, hover, and pressed states;
+- Decode and Encode tab frames and their active/inactive treatments;
+- panel frames, field backgrounds, dividers, and the small skull/flourish separators;
+- primary action-button frames for Decode, Encode, Paste, Clear, Swap, About, and View Specification;
+- project, calendar, hash-prefix, copy, clipboard, clear, swap, valid, invalid, and information icons;
+- status-field treatments for valid, invalid, and neutral results;
+- the large right-side Pnakotic/cryptex character illustration;
+- dark stone/metal background textures and subtle green runic accents; and
+- any required font files and their license notices.
+
+### Completion checklist
+
+- [ ] Define reusable color, spacing, typography, border, and interaction-state tokens from the concept.
+- [ ] Prepare the reusable assets above, document their provenance/licenses, and add only the assets used by the UI.
+- [ ] Replace the proof-of-concept layout with reusable Qt Quick frame, button, field, tab, and status components.
+- [ ] Implement the finished Decode and Encode panels, retaining the existing project-policy and validation behavior.
+- [ ] Add clipboard, paste, clear, copy, and workflow-swap interactions with keyboard-accessible equivalents.
+- [ ] Add About and specification navigation, along with visible application/build version information.
+- [ ] Adapt the landscape composition for 16:9, 3:2, and 4:3 windows without losing access to conversion controls or result fields.
+- [ ] Add focused UI/controller tests and repeat the real-commit encode/decode smoke test.
+
+## AI Usage
+
+AI tools are used in this project as development support for understanding the codebase, tracking build nuances,
+reviewing changes, investigating issues, and improving documentation.
+
+AI-generated output is not treated as authoritative. Contributions are expected to be reviewed, tested, and understood
+by the person submitting them. AI may be used by contributors, but it must be used as tooling, not as a substitute for
+engineering judgment.
+
+This project allows AI-assisted work. It does not accept unchecked AI-generated code, broad automated rewrites, or
+changes that the contributor cannot explain and maintain.
 
 ## Licensing
 
