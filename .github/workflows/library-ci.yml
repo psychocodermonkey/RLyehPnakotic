@@ -1,0 +1,45 @@
+name: Library CI
+
+"on":
+  pull_request:
+    branches: [master]
+  push:
+    branches: [master]
+
+permissions:
+  contents: read
+
+jobs:
+  library-linux:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Debug build and test
+        run: |
+          cmake --preset debug
+          cmake --build --preset debug --parallel 2
+          ctest --preset debug --output-on-failure
+      - name: Release build and test
+        run: |
+          cmake --preset release
+          cmake --build --preset release --parallel 2
+          ctest --preset release --output-on-failure
+
+  library-macos:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Debug build and test
+        run: |
+          cmake --preset debug
+          cmake --build --preset debug --parallel 2
+          ctest --preset debug --output-on-failure
+      - name: Release build and test
+        run: |
+          cmake --preset release
+          cmake --build --preset release --parallel 2
+          ctest --preset release --output-on-failure
