@@ -1,0 +1,224 @@
+name: Library Release
+
+"on":
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pnakotic-library-release
+  cancel-in-progress: false
+
+jobs:
+  release-source:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Verify current master commit
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          [[ "$GITHUB_REF" == "refs/heads/master" && "$GITHUB_REF_TYPE" == "branch" ]] || {
+            echo "::error::Select the master branch for a release"
+            exit 1
+          }
+          [[ "$(gh api "repos/$GITHUB_REPOSITORY" --jq '.default_branch')" == "master" ]]
+          [[ "$(git rev-parse HEAD)" == "$GITHUB_SHA" ]]
+          remote_commit=$(git ls-remote --exit-code origin refs/heads/master | cut -f1)
+          [[ "$remote_commit" == "$GITHUB_SHA" ]] || {
+            echo "::error::Selected commit is no longer the remote master HEAD"
+            exit 1
+          }
+
+  validate-linux:
+    needs: release-source
+    runs-on: ubuntu-24.04
+    outputs:
+      version: ${{ steps.package.outputs.version }}
+      zip_name: ${{ steps.package.outputs.zip_name }}
+      sha256: ${{ steps.package.outputs.sha256 }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - name: Debug build and test
+        run: |
+          cmake --preset debug
+          cmake --build --preset debug --parallel 2
+          ctest --preset debug --output-on-failure
+      - name: Release build and test
+        run: |
+          cmake --preset release
+          cmake --build --preset release --parallel 2
+          ctest --preset release --output-on-failure
+      - name: Package and verify library ZIP
+        id: package
+        run: |
+          set -euo pipefail
+          python3 scripts/package-library.py --output-dir "$RUNNER_TEMP/pnakotic-dist"
+
+          mapfile -t metadata < <(build/library-package/bin/RLyehPnakoticPackageVersion)
+          [[ "${#metadata[@]}" -eq 2 ]]
+          version="${metadata[0]}"
+          [[ "$version" =~ ^-?[0-9]+(\.-?[0-9]+){3}$ ]]
+          [[ "${metadata[1]}" == "$GITHUB_SHA" ]]
+
+          utc_date=$(date -u -d "@$(git show -s --format=%ct HEAD)" +%F)
+          cat > "$RUNNER_TEMP/verify-version.cpp" <<'CPP'
+          #include <RLyehPnakotic/ProjectPolicy.h>
+          #include <cstdio>
+
+          int main(int argc, char** argv) {
+            if (argc != 3) return 2;
+            const auto result = RLyeh::Pnakotic::EncodeSCMVersion(
+              RLyeh::Pnakotic::Projects::RLyehPnakotic, argv[1], argv[2]);
+            if (!result.valid()) return 1;
+            std::puts(result.version.data());
+          }
+          CPP
+          c++ -std=c++20 -I include "$RUNNER_TEMP/verify-version.cpp" -o "$RUNNER_TEMP/verify-version"
+          [[ "$("$RUNNER_TEMP/verify-version" "$utc_date" "$GITHUB_SHA")" == "$version" ]]
+
+          zip_name="RLyehPnakotic-${version}.zip"
+          zip_path="$RUNNER_TEMP/pnakotic-dist/$zip_name"
+          export PNAKOTIC_VERSION="$version" PNAKOTIC_ZIP="$zip_path"
+          python3 - <<'PY'
+          import os
+          from pathlib import Path
+          import runpy
+          import zipfile
+
+          version = os.environ["PNAKOTIC_VERSION"]
+          commit = os.environ["GITHUB_SHA"]
+          archive_path = Path(os.environ["PNAKOTIC_ZIP"])
+          root = f"RLyehPnakotic-{version}"
+          if archive_path.name != f"{root}.zip" or "-uncommitted" in root:
+              raise SystemExit("ZIP filename does not identify a clean public version")
+          manifest = runpy.run_path("scripts/package-library.py")["PACKAGE_FILES"]
+          expected = {f"{root}/{name}" for name in (*manifest.values(), "VERSION.txt")}
+          with zipfile.ZipFile(archive_path) as archive:
+              names = archive.namelist()
+              if len(names) != len(expected) or set(names) != expected:
+                  raise SystemExit("ZIP differs from the approved library manifest")
+              if archive.read(f"{root}/VERSION.txt").decode() != (
+                  f"Public version: {version}\nCommit: {commit}\nSource state: clean commit\n"
+              ):
+                  raise SystemExit("VERSION.txt does not match the validated commit")
+              checkout = os.environ["GITHUB_WORKSPACE"].encode()
+              if any(checkout in archive.read(name) for name in names):
+                  raise SystemExit("ZIP contains a development-checkout path")
+          PY
+
+          sha256=$(sha256sum "$zip_path" | cut -d' ' -f1)
+          printf 'version=%s\nzip_name=%s\nsha256=%s\n' "$version" "$zip_name" "$sha256" >> "$GITHUB_OUTPUT"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: validated-library-zip
+          path: ${{ runner.temp }}/pnakotic-dist/${{ steps.package.outputs.zip_name }}
+          if-no-files-found: error
+
+  validate-macos:
+    needs: release-source
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - name: Debug build and test
+        run: |
+          cmake --preset debug
+          cmake --build --preset debug --parallel 2
+          ctest --preset debug --output-on-failure
+      - name: Release build and test
+        run: |
+          cmake --preset release
+          cmake --build --preset release --parallel 2
+          ctest --preset release --output-on-failure
+
+  publish:
+    needs: [release-source, validate-linux, validate-macos]
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      RELEASE_VERSION: ${{ needs.validate-linux.outputs.version }}
+      RELEASE_ZIP_NAME: ${{ needs.validate-linux.outputs.zip_name }}
+      RELEASE_SHA256: ${{ needs.validate-linux.outputs.sha256 }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+      - uses: actions/download-artifact@v4
+        with:
+          name: validated-library-zip
+          path: ${{ runner.temp }}/pnakotic-dist
+      - name: Create tag and publish release
+        run: |
+          set -euo pipefail
+          tag_pushed=0
+          tag="PNK_${RELEASE_VERSION}"
+          report_partial() {
+            status=$?
+            if (( status != 0 && tag_pushed == 1 )); then
+              echo "::error::Tag $tag was pushed. The release may be absent or incomplete; inspect it manually. No tag or release was removed."
+            fi
+          }
+          trap report_partial EXIT
+
+          [[ "$GITHUB_REF" == "refs/heads/master" && "$GITHUB_REF_TYPE" == "branch" ]] || {
+            echo "::error::Release source is not master"
+            exit 1
+          }
+          [[ "$(gh api "repos/$GITHUB_REPOSITORY" --jq '.default_branch')" == "master" ]]
+          [[ "$(git rev-parse HEAD)" == "$GITHUB_SHA" ]]
+          remote_commit=$(git ls-remote --exit-code origin refs/heads/master | cut -f1)
+          [[ "$remote_commit" == "$GITHUB_SHA" ]] || {
+            echo "::error::Master advanced after validation; no tag was created"
+            exit 1
+          }
+          [[ "$RELEASE_VERSION" =~ ^-?[0-9]+(\.-?[0-9]+){3}$ ]]
+          [[ "$RELEASE_ZIP_NAME" == "RLyehPnakotic-${RELEASE_VERSION}.zip" ]]
+          zip_path="$RUNNER_TEMP/pnakotic-dist/$RELEASE_ZIP_NAME"
+          [[ -f "$zip_path" ]]
+          [[ "$(sha256sum "$zip_path" | cut -d' ' -f1)" == "$RELEASE_SHA256" ]]
+
+          git fetch --tags origin
+          if git show-ref --verify --quiet "refs/tags/$tag"; then
+            echo "::error::Tag $tag already exists"
+            exit 1
+          fi
+          remote_tag=$(git ls-remote --tags origin "refs/tags/$tag")
+          if [[ -n "$remote_tag" ]]; then
+            echo "::error::Remote tag $tag already exists"
+            exit 1
+          fi
+          release_id=$(gh api graphql -F owner='{owner}' -F name='{repo}' -f tag="$tag" \
+            -f query='query($owner: String!, $name: String!, $tag: String!) { repository(owner: $owner, name: $name) { release(tagName: $tag) { id } } }' \
+            --jq '.data.repository.release.id // ""')
+          if [[ -n "$release_id" ]]; then
+            echo "::error::GitHub Release $tag already exists"
+            exit 1
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          remote_commit=$(git ls-remote --exit-code origin refs/heads/master | cut -f1)
+          [[ "$remote_commit" == "$GITHUB_SHA" ]] || {
+            echo "::error::Master advanced before tagging; no tag was created"
+            exit 1
+          }
+          git tag -a "$tag" "$GITHUB_SHA" -m "R'lyeh Pnakotic $RELEASE_VERSION ($GITHUB_SHA)"
+          git push origin "refs/tags/$tag:refs/tags/$tag"
+          tag_pushed=1
+          remote_tag_commit=$(git ls-remote --tags origin | awk -v ref="refs/tags/$tag^{}" '$2 == ref { print $1 }')
+          [[ "$remote_tag_commit" == "$GITHUB_SHA" ]]
+          remote_commit=$(git ls-remote --exit-code origin refs/heads/master | cut -f1)
+          [[ "$remote_commit" == "$GITHUB_SHA" ]]
+          gh release create "$tag" "$zip_path" --verify-tag --title "$tag" --notes-from-tag --latest
