@@ -3,15 +3,12 @@
 R'Lyeh SCM versions are deterministic, reversible obfuscations of a Git locator. They are not encryption and provide no
 cryptographic security. Their four signed components deliberately do not communicate chronological ordering.
 
-The manually assigned first public release is `0.0.0`, exactly three components. It is separate from the four-component
-SCM format described here.
-
 ## Design intent
 
-Pnakotic exists to give R'Lyeh projects a reproducible public development version without exposing an immediately
-readable date or build sequence and without suggesting semantic-version precedence. Its intentionally strange output is
-still a compact source locator: a project policy supplies the calendar context, and the decoded date plus hash prefix
-narrows the corresponding repository search.
+Pnakotic gives consumers a reproducible public development version without exposing an immediately readable date or
+build sequence and without suggesting semantic-version precedence. Its intentionally strange output is still a compact
+source locator: a project policy supplies the calendar context, and the decoded date plus hash prefix narrows the
+corresponding repository search.
 
 The format favors one authoritative, reversible implementation over convenience shortcuts. In particular:
 
@@ -27,13 +24,16 @@ placement, or the hash-prefix convention creates a different format even if the 
 
 ## Inputs and epoch
 
-The SCM encoder uses the checked-out `HEAD` commit's `%cs` committer calendar date and the first six hexadecimal
-characters of its full hash. Dirty working-tree state does not affect the encoded value. Branch, describe string, full
-hash, and full ISO-8601 committer timestamp remain available as separate build metadata.
+Consumers retrieve Git metadata, choose a date convention, perform any needed timezone conversion, and supply a valid
+`YYYY-MM-DD` calendar date and full hexadecimal commit hash. Pnakotic validates and encodes the supplied calendar date
+exactly as provided and uses the first six characters of the hash. It does not interpret timestamps, convert timezones,
+or verify that a date represents UTC.
 
-R'Lyeh Pnakotic owns the project policy and its single authoritative epoch definition. The R'Lyeh PSX development epoch
-is `2026-05-31`; it remains provisional until the public `0.0.0` release, when it is changed to that release's calendar
-date and then frozen permanently.
+UTC is the recommended date convention, not a library requirement. To use it, derive the UTC calendar date from the Git
+committer timestamp with its timezone information rather than assuming `%cs` represents UTC. Consumers should use the
+same date convention when encoding and subsequently looking up the commit. Dirty working-tree state does not affect the
+encoded value. Branch, describe string, full hash, and full ISO-8601 committer timestamp remain available as separate
+build metadata.
 
 ## Logical payload
 
@@ -135,21 +135,13 @@ input, and validity is always represented separately rather than inferred from t
 ## Consumer integration boundary
 
 Pnakotic does not inspect source-control repositories or invoke Git. Each consumer owns repository discovery and the
-collection of its commit date and full commit hash. A typical build integration writes those raw strings to a generated
-header and passes them, together with a Pnakotic-owned project policy, to `EncodeSCMVersion`:
-
-```cpp
-constexpr auto public_version = RLyeh::Pnakotic::EncodeSCMVersion(
-  RLyeh::Pnakotic::Projects::RLyehPSX,
-  BuildMetadata::CommitDate,
-  BuildMetadata::CommitHash);
-
-static_assert(public_version.valid());
-```
+collection of its commit date and full commit hash. A typical build integration writes the selected calendar date and
+full hash to a generated header, then passes them with a Pnakotic-owned project policy to `EncodeSCMVersion`. Consumers
+can use `static_assert` to check the result's validity at compile time.
 
 This keeps source-control interrogation and build-metadata generation in the consuming project while leaving one
-authoritative encoder and decoder in Pnakotic. Because the API is `constexpr`, consumers such as R'Lyeh PSX can compute
-their public version during compilation without a runtime dependency or a second implementation of the format.
+authoritative encoder and decoder in Pnakotic. Because the API is `constexpr`, consumers can compute their public version
+during compilation without a runtime dependency or a second implementation of the format.
 
 Decoding returns only the commit calendar date and six-digit hash prefix. Resolving that locator to a complete commit,
 and displaying any other repository metadata such as branch, tag, describe string, or dirty state, remain consumer
