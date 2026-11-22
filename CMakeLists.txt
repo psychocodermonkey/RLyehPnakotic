@@ -1,12 +1,16 @@
 cmake_minimum_required(VERSION 3.21)
 
-project(RLyehPnakotic VERSION 0.0.0 LANGUAGES CXX)
+project(RLyehPnakotic LANGUAGES CXX)
 
 include(CMakePackageConfigHelpers)
 include(GNUInstallDirs)
 
 option(RLYEH_PNAKOTIC_BUILD_TESTS "Build R'Lyeh Pnakotic tests" ${PROJECT_IS_TOP_LEVEL})
 option(RLYEH_PNAKOTIC_BUILD_APP "Build the R'Lyeh Pnakotic Qt application" OFF)
+
+if(PROJECT_IS_TOP_LEVEL OR RLYEH_PNAKOTIC_BUILD_APP OR RLYEH_PNAKOTIC_BUILD_TESTS)
+  include(cmake/PnakoticSCM.cmake)
+endif()
 
 add_library(RLyehPnakotic INTERFACE)
 add_library(RLyeh::Pnakotic ALIAS RLyehPnakotic)
@@ -34,12 +38,6 @@ configure_package_config_file(
   INSTALL_DESTINATION "${RLyehPnakotic_INSTALL_CMAKEDIR}"
 )
 
-write_basic_package_version_file(
-  "${CMAKE_CURRENT_BINARY_DIR}/RLyehPnakoticConfigVersion.cmake"
-  VERSION "${PROJECT_VERSION}"
-  COMPATIBILITY SameMinorVersion
-)
-
 install(TARGETS RLyehPnakotic
   EXPORT RLyehPnakoticTargets
   COMPONENT RLyehPnakotic
@@ -56,7 +54,6 @@ install(EXPORT RLyehPnakoticTargets
 )
 install(FILES
   "${CMAKE_CURRENT_BINARY_DIR}/RLyehPnakoticConfig.cmake"
-  "${CMAKE_CURRENT_BINARY_DIR}/RLyehPnakoticConfigVersion.cmake"
   DESTINATION "${RLyehPnakotic_INSTALL_CMAKEDIR}"
   COMPONENT RLyehPnakotic
 )

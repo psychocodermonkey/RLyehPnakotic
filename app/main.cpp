@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-only
 
 #include "PnakoticController.h"
+#include "PnakoticBuildVersion.h"
 
 #include <QCoreApplication>
 #include <QFont>
@@ -18,7 +19,8 @@ int main(int argc, char* argv[])
   QGuiApplication application(argc, argv);
   QCoreApplication::setOrganizationName(QStringLiteral("R'Lyeh"));
   QCoreApplication::setApplicationName(QStringLiteral("RLyehPnakotic"));
-  QCoreApplication::setApplicationVersion(QStringLiteral("0.0.0"));
+  QCoreApplication::setApplicationVersion(
+    QString::fromLatin1(RLyeh::Pnakotic::Build::Version.version.data()));
   QGuiApplication::setApplicationDisplayName(QStringLiteral("R'Lyeh Pnakotic"));
 
   const int font_id =

@@ -2,9 +2,11 @@
 // SPDX-License-Identifier: GPL-3.0-only
 
 #include "RLyehPnakotic/Pnakotic.h"
+#include "PnakoticBuildVersion.h"
 #include "test_framework.h"
 
 #include <array>
+#include <chrono>
 #include <cstdint>
 #include <string_view>
 
@@ -52,6 +54,20 @@ static_assert(COMPILE_TIME_KNOWN_VERSION.valid());
 static_assert(COMPILE_TIME_KNOWN_VERSION.version.view() == "-267.-19.-217.169");
 static_assert(COMPILE_TIME_KNOWN_VERSION.date_delta == 0);
 static_assert(COMPILE_TIME_KNOWN_VERSION.commit_prefix == 0x546BDBu);
+
+constexpr auto UTC_MIDNIGHT = std::chrono::sys_days{std::chrono::year{2026} / 8 / 17};
+static_assert(FormatCalendarDate(std::chrono::floor<std::chrono::days>(UTC_MIDNIGHT - std::chrono::seconds{1})).view() ==
+              "2026-08-16");
+static_assert(FormatCalendarDate(std::chrono::floor<std::chrono::days>(UTC_MIDNIGHT)).view() == "2026-08-17");
+
+TEST(RLyehPnakoticPolicy, EncodesCurrentCommitFromUTCMetadata)
+{
+  EXPECT_TRUE(Build::Version.valid());
+  const SCMLocatorResult decoded = DecodeSCMVersion(Projects::RLyehPnakotic, Build::Version.version.view());
+  ASSERT_TRUE(decoded.valid());
+  EXPECT_EQ(decoded.commit_date.view(), Build::CommitDate.view());
+  EXPECT_EQ(decoded.commit_prefix.view(), std::string_view(Build::CommitHash, 6));
+}
 
 TEST(RLyehPnakoticPolicy, DefinesProjectPolicy)
 {

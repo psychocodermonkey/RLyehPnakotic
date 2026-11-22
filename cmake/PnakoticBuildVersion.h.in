@@ -1,0 +1,18 @@
+// Generated from the Pnakotic checkout at CMake configuration time.
+#pragma once
+
+#include "RLyehPnakotic/ProjectPolicy.h"
+
+#include <chrono>
+
+namespace RLyeh::Pnakotic::Build {
+
+inline constexpr char CommitHash[] = "@PNAKOTIC_COMMIT_HASH@";
+inline constexpr std::chrono::sys_seconds CommitTime{
+  std::chrono::seconds{@PNAKOTIC_COMMIT_TIMESTAMP@LL}
+};
+inline constexpr auto CommitDate = FormatCalendarDate(std::chrono::floor<std::chrono::days>(CommitTime));
+inline constexpr auto Version = EncodeSCMVersion(Projects::RLyehPnakotic, CommitDate.view(), CommitHash);
+static_assert(Version.valid(), "Pnakotic Git metadata cannot be encoded");
+
+} // namespace RLyeh::Pnakotic::Build
