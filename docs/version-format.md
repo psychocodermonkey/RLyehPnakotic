@@ -143,6 +143,12 @@ This keeps source-control interrogation and build-metadata generation in the con
 authoritative encoder and decoder in Pnakotic. Because the API is `constexpr`, consumers can compute their public version
 during compilation without a runtime dependency or a second implementation of the format.
 
+The four signed components are Pnakotic's single canonical representation across platforms. Pnakotic does not normalize
+them for platform metadata. This format intentionally deviates from Apple's published specifications for
+`CFBundleShortVersionString` and `CFBundleVersion`; the Pnakotic macOS application passes the canonical string unchanged
+to both bundle fields. Any platform-specific transformation a consumer requires belongs to its packaging or integration
+layer.
+
 Decoding returns only the commit calendar date and six-digit hash prefix. Resolving that locator to a complete commit,
 and displaying any other repository metadata such as branch, tag, describe string, or dirty state, remain consumer
 responsibilities outside Pnakotic.

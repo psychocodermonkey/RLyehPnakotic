@@ -74,9 +74,8 @@ if(APPLE)
     RUN_OUTPUT_VARIABLE PNAKOTIC_BUNDLE_VERSION
   )
   if(NOT PNAKOTIC_BUNDLE_VERSION_COMPILE_RESULT OR
-     NOT PNAKOTIC_BUNDLE_VERSION_RUN_RESULT EQUAL 0 OR
-     NOT PNAKOTIC_BUNDLE_VERSION MATCHES "^[0-9]+\\.[0-9]+\\.[0-9]+$")
-    message(FATAL_ERROR "Could not derive macOS bundle metadata from the Pnakotic version")
+     NOT PNAKOTIC_BUNDLE_VERSION_RUN_RESULT EQUAL 0)
+    message(FATAL_ERROR "Could not read Pnakotic version for macOS bundle metadata")
   endif()
   set_target_properties(RLyehPnakoticApp PROPERTIES
     MACOSX_BUNDLE_SHORT_VERSION_STRING "${PNAKOTIC_BUNDLE_VERSION}"
